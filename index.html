@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tuition Manager Pro</title>
+
+<style>
+:root{
+  --bg:#0f172a;
+  --card:#1e293b;
+  --primary:#6366f1;
+  --text:#e2e8f0;
+}
+
+body{
+  margin:0;
+  font-family:sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.sidebar{
+  width:230px;
+  height:100vh;
+  background:#020617;
+  position:fixed;
+  padding:20px;
+}
+
+.sidebar h2{color:white;}
+
+.sidebar button{
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border:none;
+  background:none;
+  color:#cbd5f5;
+  cursor:pointer;
+}
+
+.sidebar button:hover{
+  background:var(--primary);
+  color:white;
+}
+
+.main{
+  margin-left:250px;
+  padding:20px;
+}
+
+.card{
+  background:var(--card);
+  padding:15px;
+  border-radius:12px;
+  margin:10px 0;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+td,th{
+  padding:10px;
+  border-bottom:1px solid #334155;
+}
+
+.att-btn{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  border:2px solid #64748b;
+  cursor:pointer;
+  background:transparent;
+}
+
+.present.active{background:#22c55e;border:none;}
+.absent.active{background:#ef4444;border:none;}
+.late.active{background:#facc15;border:none;}
+
+input,select{
+  padding:8px;
+  margin:5px;
+  border-radius:6px;
+  border:none;
+}
+
+button{
+  cursor:pointer;
+}
+
+button.primary{
+  background:var(--primary);
+  color:white;
+  padding:8px 12px;
+  border:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h2>Manager</h2>
+  <button onclick="show('students')">Students</button>
+  <button onclick="show('attendance')">Attendance</button>
+  <button onclick="show('report')">Report</button>
+  <button onclick="show('payment')">Payment</button>
+</div>
+
+<div class="main">
+
+<!-- STUDENTS -->
+<div id="students">
+  <div class="card">
+    <input id="name" placeholder="Student Name">
+    <button onclick="addStudent()">Add</button>
+  </div>
+
+  <table>
+    <tbody id="studentList"></tbody>
+  </table>
+</div>
+
+<!-- ATTENDANCE -->
+<div id="attendance" style="display:none;">
+  <div class="card">
+    <input type="date" id="date">
+  </div>
+
+  <table>
+    <tbody id="attTable"></tbody>
+  </table>
+
+  <button class="primary" onclick="saveAttendance()">Save</button>
+</div>
+
+<!-- REPORT -->
+<div id="report" style="display:none;">
+
+  <div class="card">
+    <h3>Attendance Report</h3>
+    <input type="month" id="reportMonth">
+    <button onclick="generateReport()">Generate</button>
+
+    <select id="studentSelect"></select>
+    <button onclick="printStudent()">Print Individual</button>
+  </div>
+
+  <div id="reportBox"></div>
+
+  <div class="card">
+    <h3>Payment Report</h3>
+    <select id="payStudentReport"></select>
+    <button onclick="generatePaymentReport()">Generate</button>
+
+    <div id="paymentReportBox"></div>
+  </div>
+
+  <div class="card">
+    <h3>Exam Entry</h3>
+
+    <select id="examStudent"></select>
+
+    <input id="examName" placeholder="Exam Name">
+    <input id="topic" placeholder="Topic">
+
+    <input type="month" id="examMonthInput">
+    <input type="date" id="examDate">
+
+    <input id="obt" placeholder="Obtained Marks">
+    <input id="total" placeholder="Total Marks">
+
+    <button onclick="addExam()">Add Exam</button>
+  </div>
+
+  <div class="card">
+    <h3>Exam Result Card</h3>
+
+    <select id="examStudentResult"></select>
+    <input type="month" id="examMonth">
+
+    <button onclick="printExamCard()">Generate</button>
+  </div>
+
+</div>
+
+<!-- PAYMENT -->
+<div id="payment" style="display:none;">
+  <div class="card">
+    <select id="payStudent"></select>
+    <input type="month" id="payMonth">
+    <input id="amount" placeholder="Amount">
+    <button onclick="addPayment()">Pay</button>
+  </div>
+
+  <ul id="payList"></ul>
+</div>
+
+</div>
+
+<script>
+
+let students = JSON.parse(localStorage.getItem("students")) || [];
+let attendance = JSON.parse(localStorage.getItem("attendance")) || [];
+let payments = JSON.parse(localStorage.getItem("payments")) || [];
+let exams = JSON.parse(localStorage.getItem("exams")) || [];
+
+let temp = {};
+
+function save(){
+  localStorage.setItem("students", JSON.stringify(students));
+  localStorage.setItem("attendance", JSON.stringify(attendance));
+  localStorage.setItem("payments", JSON.stringify(payments));
+  localStorage.setItem("exams", JSON.stringify(exams));
+}
+
+function show(id){
+  document.querySelectorAll(".main > div").forEach(d => d.style.display="none");
+  document.getElementById(id).style.display="block";
+}
+
+/* STUDENT */
+function addStudent(){
+  let name=document.getElementById("name");
+  if(!name.value.trim()) return;
+
+  students.push({id:String(Date.now()), name:name.value});
+  name.value="";
+  save();
+  render();
+}
+
+/* PAYMENT */
+function addPayment(){
+  let student=document.getElementById("payStudent").value;
+  let month=document.getElementById("payMonth").value;
+  let amount=document.getElementById("amount").value;
+
+  if(!student || !month || !amount) return;
+
+  payments.push({
+    student,
+    month,
+    amount,
+    date:new Date().toLocaleDateString()
+  });
+
+  save();
+  renderPayments();
+}
+
+/* ✅ FIXED PAYMENT REPORT */
+function generatePaymentReport(){
+  let studentId = document.getElementById("payStudentReport").value;
+  let box = document.getElementById("paymentReportBox");
+
+  let s = students.find(x=>x.id==studentId);
+  if(!s){
+    box.innerHTML="Select student";
+    return;
+  }
+
+  let data = payments.filter(p=>p.student==studentId);
+
+  let html = `<div class="card">
+  <h3>${s.name} Payment Report</h3>`;
+
+  data.forEach(p=>{
+    html += `
+      <p>Month: ${p.month} | Amount: ৳${p.amount} | Date: ${p.date}</p>
+    `;
+  });
+
+  html += `</div>`;
+
+  box.innerHTML = html;
+}
+
+/* EXAM */
+function addExam(){
+  exams.push({
+    student: document.getElementById("examStudent").value,
+    examName: document.getElementById("examName").value,
+    topic: document.getElementById("topic").value,
+    date: document.getElementById("examDate").value,
+    obt: document.getElementById("obt").value,
+    total: document.getElementById("total").value,
+    month: document.getElementById("examMonthInput").value
+  });
+
+  save();
+}
+
+/* EXAM CARD (UNCHANGED LOGIC) */
+function printExamCard(){
+
+  let studentId=document.getElementById("examStudentResult").value;
+  let month=document.getElementById("examMonth").value;
+
+  let s=students.find(x=>x.id==studentId);
+  if(!s) return;
+
+  let data=exams.filter(e=>e.student==studentId && e.month==month);
+
+  let total=0,obt=0;
+
+  let html=`<h2>${s.name} Result Card</h2><table border="1">`;
+
+  data.forEach(d=>{
+    total+=Number(d.total||0);
+    obt+=Number(d.obt||0);
+
+    html+=`
+      <tr>
+        <td>${d.examName}</td>
+        <td>${d.topic}</td>
+        <td>${d.obt}/${d.total}</td>
+        <td>${d.date}</td>
+      </tr>
+    `;
+  });
+
+  html+=`</table><h3>Total: ${obt}/${total}</h3>`;
+
+  let w=window.open();
+  w.document.write(html);
+  w.print();
+}
+
+/* RENDER */
+function render(){
+
+  let list=document.getElementById("studentList");
+  let pay=document.getElementById("payStudent");
+  let s1=document.getElementById("studentSelect");
+  let s2=document.getElementById("payStudentReport");
+  let s3=document.getElementById("examStudent");
+  let s4=document.getElementById("examStudentResult");
+
+  list.innerHTML="";
+  pay.innerHTML="";
+  s1.innerHTML="";
+  s2.innerHTML="";
+  s3.innerHTML="";
+  s4.innerHTML="";
+
+  students.forEach(s=>{
+    list.innerHTML+=`<tr><td>${s.name}</td></tr>`;
+    pay.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    s1.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    s2.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    s3.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    s4.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+  });
+
+  renderPayments();
+}
+
+function renderPayments(){
+  let list=document.getElementById("payList");
+  list.innerHTML="";
+
+  payments.forEach(p=>{
+    let s=students.find(x=>x.id==p.student);
+    if(!s) return;
+
+    list.innerHTML+=`
+    <li>${s.name} - ${p.month} - ৳${p.amount}</li>
+    `;
+  });
+}
+
+render();
+
+</script>
+
+</body>
+</html>
