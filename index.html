@@ -96,6 +96,42 @@ button.primary{
   padding:8px 12px;
   border:none;
 }
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 768px){
+
+  .sidebar{
+    width:100%;
+    height:auto;
+    position:relative;
+    display:flex;
+    overflow-x:auto;
+  }
+
+  .sidebar button{
+    flex:1;
+    font-size:12px;
+    padding:8px;
+  }
+
+  .main{
+    margin-left:0;
+    padding:10px;
+  }
+
+  table{
+    font-size:12px;
+  }
+
+  input,select{
+    width:100%;
+    box-sizing:border-box;
+  }
+
+  .card{
+    padding:10px;
+  }
+}
 </style>
 </head>
 
@@ -200,6 +236,8 @@ button.primary{
 
 </div>
 
+<!-- SAME HTML + CSS (UNCHANGED) -->
+
 <script>
 
 let students = JSON.parse(localStorage.getItem("students")) || [];
@@ -219,9 +257,13 @@ function save(){
 function show(id){
   document.querySelectorAll(".main > div").forEach(d => d.style.display="none");
   document.getElementById(id).style.display="block";
+
+  if(id === "attendance"){
+    renderAttendance();
+  }
 }
 
-/* STUDENT */
+/* ================= STUDENT (UNCHANGED) ================= */
 function addStudent(){
   let name=document.getElementById("name");
   if(!name.value.trim()) return;
@@ -232,7 +274,7 @@ function addStudent(){
   render();
 }
 
-/* PAYMENT */
+/* ================= PAYMENT (UNCHANGED) ================= */
 function addPayment(){
   let student=document.getElementById("payStudent").value;
   let month=document.getElementById("payMonth").value;
@@ -251,7 +293,120 @@ function addPayment(){
   renderPayments();
 }
 
-/* ✅ FIXED PAYMENT REPORT */
+/* ================= ATTENDANCE (UNCHANGED) ================= */
+function renderAttendance(){
+  let table = document.getElementById("attTable");
+  table.innerHTML = "";
+
+  students.forEach(s=>{
+    table.innerHTML += `
+      <tr>
+        <td>${s.name}</td>
+        <td>
+          <button class="att-btn present" onclick="mark('${s.id}','present',this)">P</button>
+          <button class="att-btn absent" onclick="mark('${s.id}','absent',this)">A</button>
+          <button class="att-btn late" onclick="mark('${s.id}','late',this)">L</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function mark(id,status,btn){
+  temp[id] = status;
+
+  let parent = btn.parentElement;
+  parent.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+function saveAttendance(){
+  let date = document.getElementById("date").value;
+  if(!date) return alert("Select date");
+
+  Object.keys(temp).forEach(id=>{
+    attendance.push({
+      student:id,
+      date,
+      status:temp[id]
+    });
+  });
+
+  temp = {};
+  save();
+  alert("Attendance Saved ✅");
+}
+
+/* ================= ✅ NEW: ATTENDANCE REPORT FIX ================= */
+
+function generateReport(){
+  let month = document.getElementById("reportMonth").value;
+  let box = document.getElementById("reportBox");
+
+  if(!month){
+    box.innerHTML = "Select month";
+    return;
+  }
+
+  let filtered = attendance.filter(a => a.date.startsWith(month));
+
+  if(filtered.length === 0){
+    box.innerHTML = "No attendance found";
+    return;
+  }
+
+  let html = `<div class="card"><h3>Attendance Report (${month})</h3>`;
+
+  students.forEach(s=>{
+    html += `<h4>${s.name}</h4>`;
+
+    let data = filtered.filter(d => d.student == s.id);
+
+    if(data.length === 0){
+      html += `<p>No record</p>`;
+    }else{
+      data.forEach(d=>{
+        html += `<p>${d.date} - ${d.status}</p>`;
+      });
+    }
+  });
+
+  html += `</div>`;
+  box.innerHTML = html;
+}
+
+/* PRINT INDIVIDUAL */
+function printStudent(){
+  let studentId = document.getElementById("studentSelect").value;
+  let month = document.getElementById("reportMonth").value;
+
+  let s = students.find(x=>x.id==studentId);
+  if(!s || !month) return;
+
+  let data = attendance.filter(a => 
+    a.student == studentId && a.date.startsWith(month)
+  );
+
+  let html = `<h2>${s.name} - Attendance (${month})</h2>
+  <table border="1">
+  <tr><th>Date</th><th>Status</th></tr>`;
+
+  data.forEach(d=>{
+    html += `<tr>
+      <td>${d.date}</td>
+      <td>${d.status}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+
+  let w = window.open();
+  w.document.write(html);
+  w.print();
+}
+
+/* ================= REST (UNCHANGED) ================= */
+
 function generatePaymentReport(){
   let studentId = document.getElementById("payStudentReport").value;
   let box = document.getElementById("paymentReportBox");
@@ -268,17 +423,13 @@ function generatePaymentReport(){
   <h3>${s.name} Payment Report</h3>`;
 
   data.forEach(p=>{
-    html += `
-      <p>Month: ${p.month} | Amount: ৳${p.amount} | Date: ${p.date}</p>
-    `;
+    html += `<p>Month: ${p.month} | Amount: ৳${p.amount} | Date: ${p.date}</p>`;
   });
 
   html += `</div>`;
-
   box.innerHTML = html;
 }
 
-/* EXAM */
 function addExam(){
   exams.push({
     student: document.getElementById("examStudent").value,
@@ -293,9 +444,7 @@ function addExam(){
   save();
 }
 
-/* EXAM CARD (UNCHANGED LOGIC) */
 function printExamCard(){
-
   let studentId=document.getElementById("examStudentResult").value;
   let month=document.getElementById("examMonth").value;
 
@@ -312,14 +461,12 @@ function printExamCard(){
     total+=Number(d.total||0);
     obt+=Number(d.obt||0);
 
-    html+=`
-      <tr>
-        <td>${d.examName}</td>
-        <td>${d.topic}</td>
-        <td>${d.obt}/${d.total}</td>
-        <td>${d.date}</td>
-      </tr>
-    `;
+    html+=`<tr>
+      <td>${d.examName}</td>
+      <td>${d.topic}</td>
+      <td>${d.obt}/${d.total}</td>
+      <td>${d.date}</td>
+    </tr>`;
   });
 
   html+=`</table><h3>Total: ${obt}/${total}</h3>`;
@@ -329,9 +476,7 @@ function printExamCard(){
   w.print();
 }
 
-/* RENDER */
 function render(){
-
   let list=document.getElementById("studentList");
   let pay=document.getElementById("payStudent");
   let s1=document.getElementById("studentSelect");
@@ -366,9 +511,7 @@ function renderPayments(){
     let s=students.find(x=>x.id==p.student);
     if(!s) return;
 
-    list.innerHTML+=`
-    <li>${s.name} - ${p.month} - ৳${p.amount}</li>
-    `;
+    list.innerHTML+=`<li>${s.name} - ${p.month} - ৳${p.amount}</li>`;
   });
 }
 
